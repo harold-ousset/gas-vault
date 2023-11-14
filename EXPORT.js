@@ -85,7 +85,7 @@ function deleteExport_(matterId, exportId){
 
 
 /**
-* build an export for a given matter
+* build a user export for a given matter
 * @param{String} matterId, unique id of a given matter
 * @param{String} account, email address of the requested account
 * @param{String} type, export type can be "MAIL" or "DRIVE"
@@ -93,7 +93,7 @@ function deleteExport_(matterId, exportId){
 * @param{Object} options, {exportFormat:[PST,MBOX], terms:"owner:someone@domain.ext"}
 * @return{Object} exportInfos, {id, name, type}
 **/
-function buildExport_(matterId, account, rawType, name, options){
+function buildUserExport_(matterId, account, rawType, name, options){
   var token = ScriptApp.getOAuthToken();
   var url = "https://vault.googleapis.com/v1/matters/"+matterId+"/exports";
   var headers = {"Authorization": 'Bearer ' +token};
@@ -106,29 +106,26 @@ function buildExport_(matterId, account, rawType, name, options){
   var today = new Date();
   name = name || type+' - '+account+' - '+today.getFullYear()+'-'+('0'+(Number(today.getMonth())+1)).slice(-2)+'-'+('0'+today.getDate()).slice(-2);
   
-  var payload = {
-    "name": name,
-    "query": {
-      "corpus": type,
+  var query = {
+    "corpus": type,
       "method": "ACCOUNT",
       "accountInfo": {"emails": [account]},
       "dataScope": "ALL_DATA"
-    }
   };
+
+  var exportOptions = {};
+
+  
   switch(type){
     case "MAIL":
-      payload.exportOptions = {
+      exportOptions = {
         "mailOptions": {
           "exportFormat": "PST"
         }
       };
       break;
     case "DRIVE":
-    //payload.query.terms = "owner:"+account;
-      break;
-    case "CUSTOM":
-      payload = options.payload;
-      delete options.payload;
+      query.terms = "owner:"+account;
       break;
     default:
       throw "Can't build export, unsupported type "+type; 
@@ -138,16 +135,38 @@ function buildExport_(matterId, account, rawType, name, options){
     for (var opt in options){
       switch (opt){
         case 'exportFormat':
-        payload.exportOptions.mailOptions.exportFormat = options[opt];
+          exportOptions.mailOptions.exportFormat = options[opt];
         break;
         case 'terms':
-          payload.query.terms = options[opt];
+          query.terms = options[opt];
           break;
           default:
           console.warn('Unknown option '+opt+" : "+options[opt]);
       }
     }
   }
+
+  return buildExport_(matterId, name, query, exportOptions);
+}
+
+/**
+* build an export for a given matter
+* @param{String} matterId, unique id of a given matter
+* @param{String} name, of the export
+* @param{Object} query
+* @param{[Object]} exportOptions
+* @return{Object} exportInfos, {id, name, type}
+**/
+function buildExport_(matterId, name, query, exportOptions){
+  var token = ScriptApp.getOAuthToken();
+  var url = `https://vault.googleapis.com/v1/matters/${matterId}/exports`;
+  var headers = {"Authorization": 'Bearer ' +token};
+  
+  var payload = {
+    "name": name,
+    "query": query,
+    "exportOptions":exportOptions
+  };
   
   var params = {
     "method":"POST",

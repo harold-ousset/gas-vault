@@ -20,22 +20,15 @@ limitations under the License.
 
 /// "oauthScopes": ["https://www.googleapis.com/auth/ediscovery.readonly", "https://www.googleapis.com/auth/ediscovery", "https://www.googleapis.com/auth/script.external_request"]
 
-/** init a new matter listing
-* call method getMatters to retrive the matters eof the acting user
-**/
-function Listing(){
-  this.matters = [];  
-}
 
 /** retrieve the matters of the current user 
 * @param{[String]} state, the state of the matters to be retrieveds
 * @return{Array} matters
 **/
-Listing.prototype.getMatters = function(state){
-  this.matters = getMatters_(state);
-  return this.matters;
+listMatters = function(state){
+  var matters = getMatters_(state);
+  return matters;
 };
-
 
 /**
 * open an existing matter from it's ID
@@ -45,7 +38,7 @@ Listing.prototype.getMatters = function(state){
 function openMatterById(matterId){
   var matter = new Matter();
   var matterRaw = getMatterById_(matterId);
-  matter.setStatus(matterRaw);
+  matter.chargeStatus_(matterRaw);
   return matter;
 }
 
@@ -62,10 +55,13 @@ function createMatter(name, description){
 }
 
 const MATTER_STATE = {
+  DRAFT : "DRAFT",
+  STATE_UNSPECIFIED : "STATE_UNSPECIFIED",
   OPEN : "OPEN",
-  DRAFT : "DRAFT"
+  DRAFT : "DRAFT",
+  CLOSED : "CLOSED",
+  DELETED : "DELETED"
 }
-
 this.MATTER_STATE = MATTER_STATE;
 
 /**
@@ -142,10 +138,16 @@ Matter.prototype.getState = function(){
 * set status for a Matter
 * @param{Object} status
 */
-Matter.prototype.setStatus = function(status){
+Matter.prototype.chargeStatus_ = function(status){
   for(var i in status){
     this[i] = status[i]; 
   }
+};
+
+Matter.prototype.getInfos = function(){
+  var matterData = getMatterById_(this.matterId);
+  this.chargeStatus_(matterData);
+  return matterData;
 };
 
 /**
@@ -209,13 +211,29 @@ Matter.prototype.removeCollaborator = function(email){
 **/
 Matter.prototype.createUserExport = function(account, exportType, name, options){
   exportType = exportType || EXPORT_TYPE.MAIL;
-  var rawExport = buildExport_(this.matterId, account, exportType, name, options); // rawexportData
+  var rawExport = buildUserExport_(this.matterId, account, exportType, name, options); // rawexportData
   var exprt = new Export(this.matterId, rawExport.id);
   exprt.chargeStatus_(rawExport);
   this.exports.push(exprt);
   return exprt;
 };
 
+
+
+/**
+* create an export from the active matter
+* @param{String} name, given to the export
+* @param{Object} query, as defined in the documentation https://developers.google.com/vault/reference/rest/v1/Query
+* @param{[Object]} exportOptions, as defined in the documentation https://developers.google.com/vault/reference/rest/v1/matters.exports#ExportOptions
+* @return{Object} export, an export object
+**/
+Matter.prototype.createExport = function(name, query, exportOptions){
+  var rawExport = buildExport_(this.matterId, name, query, exportOptions); // rawexportData
+  var exprt = new Export(this.matterId, rawExport.id);
+  exprt.chargeStatus_(rawExport);
+  this.exports.push(exprt);
+  return exprt;
+};
 
 /**
 * get the exports list of a given matter
@@ -239,13 +257,16 @@ Matter.prototype.openExportById = function(exportId){
   return exprt;
 }
 
-
+/**
+* list the exports of a given matter
+* @return{Array} exports
+**/
 Matter.prototype.listExports = function(){
   var exports = listExports_(this.matterId);
   
   var createExportObj_ = function(exportRaw){
     var exprt = new Export(exportRaw.matterId, exportRaw.id);
-    exprt.setStatus(exportRaw);
+    exprt.chargeStatus_(exportRaw);
     return exprt;
   }
   if(exports.length > 0){
@@ -311,8 +332,11 @@ Export.prototype.setName = function(name){
   return this;
 };
 
-// https://developers.google.com/vault/reference/rest/v1/matters.exports#exportstatus
-// EXPORT_STATUS_UNSPECIFIED, COMPLETED, FAILED, IN_PROGRESS
+/**
+ * get the status of a given export
+ * @return{String} status, EXPORT_STATUS_UNSPECIFIED, COMPLETED, FAILED, IN_PROGRESS
+ * https://developers.google.com/vault/reference/rest/v1/matters.exports#exportstatus
+ */
 Export.prototype.getStatus = function(){
   var exportData = this.getInfos();
   return exportData.status;
@@ -356,7 +380,10 @@ Export.prototype.chargeStatus_ = function(rawData){
   return this;
 };
 
-
+/**
+ * Delete the current Export
+ * @return null
+ */
 Export.prototype.remove = function(){
   deleteExport_(this.matterId, this.id);
 };

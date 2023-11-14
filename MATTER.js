@@ -218,7 +218,7 @@ function getMatters_(stateRaw){
 * @return{Object} raw matter object
 **/
 function getMatterById_(matterId){
-  var url = "https://vault.googleapis.com/v1/matters/"+matterId;
+  var url = `https://vault.googleapis.com/v1/matters/${matterId}?view=FULL`;
   var token = ScriptApp.getOAuthToken();
   var headers = {"Authorization": 'Bearer ' +token};
   
