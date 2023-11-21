@@ -98,11 +98,15 @@ TODO add matter permissions
 |close()|RawMatter|Close a Matter, will return a JSON representing the matter as in the "setStatus" method|
 |addCollaborator(email, role)|Collaborator|Add a collaborator with a given [```role```](#role) to the active matter|
 |removeCollaborator(email)|"removed"|Removed a collaborator and return a confirmation String|
+| --- | --- | --- |
 |createUserExport(account, [exportType](#exportType), name, options)|Export|Create an export from a search of a user files|
 |createExport(name, query, exportOptions)|Export|Create an export from a query like in the [official documentation]( https://developers.google.com/vault/reference/rest/v1/matters.exports#Export)|
 |getExports()|\[Export]|Display the list of the actives exports from the matter|
 |openExportById(exportId)|Export|Open an export and return it as an Object|
 |listExports()|\[Export]|Retrieve the list of the exports from the current Matter|
+| --- | --- | --- |
+|openHoldById(holdId)|Hold|Open an hold and return it as an Object|
+|listHolds()|\[Hold]|Retrieve the list of the holds from the current Matter|
 
 TODO Hold section
 
@@ -128,9 +132,9 @@ TODO Hold section
 ### Exports
 ```js
 var matter = Vault.openMatterById(matterId);
-var export = matter.openExportById(exportId);
+var vaultExport = matter.openExportById(exportId);
 
-var export = new Vault.Export(matterId, exportId);
+var vaultExport = new Vault.Export(matterId, exportId);
 ```
 #### Properties
 |Fields||
@@ -186,3 +190,23 @@ https://support.google.com/vault/answer/2474474
 ### Holds
 [Not yes implemented]
 https://developers.google.com/vault/reference/rest/v1/matters.holds
+
+```js
+var matter = Vault.openMatterById(matterId);
+var hold = matter.openHoldById(holdId);
+
+var hold = new Vault.Hold(matterId, holdId);
+```
+#### Properties
+
+
+#### Methods
+|Method         |Return type        |Description            |
+|---            |---                |---                    |
+|getId()        |id                 |Get the holdId (String)|
+|setName(name)  |Hold for chaining | set the current hold name|
+|getInfos()     |HoldInfos  | get the hold raw informations|
+|getType()      |HoldType           |user or ou           |
+|removeUser(email) |null           |  remove user from hold|
+|removeOu(orgUnitPath)|null         | remove OU from hold |
+|close()        |                   |                       |

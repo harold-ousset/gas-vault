@@ -94,10 +94,6 @@ function deleteExport_(matterId, exportId){
 * @return{Object} exportInfos, {id, name, type}
 **/
 function buildUserExport_(matterId, account, rawType, name, options){
-  var token = ScriptApp.getOAuthToken();
-  var url = "https://vault.googleapis.com/v1/matters/"+matterId+"/exports";
-  var headers = {"Authorization": 'Bearer ' +token};
-  
   if(rawType == undefined){
     throw 'Export type cannot be undefined, select "MAIL" or "DRIVE"';
   }
@@ -114,7 +110,6 @@ function buildUserExport_(matterId, account, rawType, name, options){
   };
 
   var exportOptions = {};
-
   
   switch(type){
     case "MAIL":

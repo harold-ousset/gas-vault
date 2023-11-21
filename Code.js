@@ -200,7 +200,6 @@ Matter.prototype.removeCollaborator = function(email){
   return "removed";
 };
 
-
 /**
 * create a new user data export from the active matter
 * @param{String} account, email address to be searched
@@ -217,8 +216,6 @@ Matter.prototype.createUserExport = function(account, exportType, name, options)
   this.exports.push(exprt);
   return exprt;
 };
-
-
 
 /**
 * create an export from the active matter
@@ -275,6 +272,37 @@ Matter.prototype.listExports = function(){
   this.exports = exports;
   return exports;
 };
+
+/** list holds for a given matter
+ * @return{Array} holds
+ */
+Matter.prototype.listHolds = function(){
+  var exports = listHolds_(this.matterId);
+   
+  var createHoldObj_ = function(holdRaw){
+    var hold = new Hold(holdRaw.matterId, holdRaw.id);
+    hold.chargeStatus_(holdRaw);
+    return hold;
+  }
+  if(holds.length > 0){
+    holds = holds.map(createHoldObj_);
+  }
+  this.holds = holds;
+  return holds;
+}
+
+
+/**
+* open an hold by id
+* @param{String} holdId
+* @return{Object} hold
+**/
+Matter.prototype.openHoldById = function(holdId){
+  var holdInstance = getHoldInfos_(this.matterId, holdId);
+  var hold = new Hold(this.matterId, holdId);
+  return hold;
+}
+
 
 // #############################################################
 // ###################### EXPORT SECTION #######################
@@ -387,3 +415,93 @@ Export.prototype.chargeStatus_ = function(rawData){
 Export.prototype.remove = function(){
   deleteExport_(this.matterId, this.id);
 };
+
+
+// #############################################################
+// ###################### HOLD SECTION #########################
+// #############################################################
+
+
+/**
+* open hold with it's ID and matterID
+* @param{String} matterId
+* @param{String} holdId
+* @return{Object} holdObject
+**/
+function openHoldById(matterId, holdId){
+  var exprt = new Hold(matterId, holdId);
+  exprt.getInfos();
+  return exprt;
+}
+
+/**
+* invoke an hold
+* @param{String} matterId
+* @param{String} holdId
+**/
+function Hold(matterId, holdId){
+  this.id = holdId;
+  this.matterId = matterId;
+}
+
+/**
+* get hold id
+* @return{String} holdId
+**/
+Hold.prototype.getId = function(){
+  return this.id;
+}
+
+/** set hold name
+ * @param{String} name
+ * @return{Object} Hold for chaining
+ */
+Hold.prototype.setName = function(name){
+  this.name = name;
+  return this;
+};
+
+/**
+ * get the status of a given hold
+ * @return{String} status, EXPORT_STATUS_UNSPECIFIED, COMPLETED, FAILED, IN_PROGRESS
+ * https://developers.google.com/vault/reference/rest/v1/matters.holds#holdstatus
+ */
+Hold.prototype.getStatus = function(){
+  var holdData = this.getInfos();
+  return holdData.status;
+};
+
+/**
+* retrieve the informations for a given hold
+* @return{Object} holdInstance, informations regarding a given hold
+**/
+Hold.prototype.getInfos = function(){
+  var holdData = getHoldInfos_(this.matterId, this.id);
+  for(var i in holdData){
+    this[i] = holdData[i];
+  }
+  return holdData
+}
+
+/** add one user (account) to a hold
+ * @param{String} accountEmail, primary email address of the user to add
+ * @return{Object} hold, for chaining
+ */
+Hold.prototype.addAccount = function(accountEmail){
+
+}
+
+/** add several accounts to a hold
+ * @param{Array} accountsEmails, email list of the account to add
+ * @return{Object} hold, for chaining
+ */
+Hold.prototype.addAccounts = function(accountsEmails){
+
+}
+
+/** list the accounts held in a hold
+ * @return{Array} accountsEmail
+ */
+Hold.prototype.listAccounts = function(){
+
+}
