@@ -154,7 +154,7 @@ function closeMatter_(matterId){
 
 /**
 * retrive all the matters available for a given user
-* @param{String} state, state of the matter 
+* @param{String} state, state of the matter ["OPEN","CLOSED", "DELETED"];
 * @return {Array} Matters
 **/
 function getMatters_(stateRaw){
@@ -181,7 +181,7 @@ function getMatters_(stateRaw){
   
   function juiceResponseMatters(matterRaw){
     var matter = new Matter();
-    matter.setStatus(matterRaw);
+    matter.chargeStatus_(matterRaw);
     this.push(matter);
   }
   
