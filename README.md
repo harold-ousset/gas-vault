@@ -1,212 +1,247 @@
 # GAS-Vault
-Library to use Google Vault with Google Apps Script
+A comprehensive library for interacting with the Google Vault API to manage eDiscovery matters, holds, and exports within Google Workspace.
+## Overview
 
-This library aim to let you use Google vault feature in Google Apps Script.
+This library provides an object-oriented approach to managing Google Vault resources. It handles API requests, authentication, pagination, and error handling (including exponential backoff), offering a simplified interface for common Vault operations.
 
-## Install
-You can use the library asis just by linking it. But as it's usage can touch sensitive data you may prefer to copy the source to your own repository in order to have full control of what is beneth.
 
-### Link the library
-From the `editor` page of your Google Apps Script Project select the `+` in the `Libraries` section to add a new library.
-Pass the following script ID:
-`1yXuSYg04wH88jOi47oaPZahRjD3RN20tfkv7eQXrWvhnIi9c09i4q9up`
-and select `look up`
-Select the last version available and let the default identifier to `Vault`
+**Library Script ID:** `1yXuSYg04wH88jOi47oaPZahRjD3RN20tfkv7eQXrWvhnIi9c09i4q9up`
 
-#### Activate the vault API
-In order to use the library you need to activate [Vault API](https://console.cloud.google.com/apis/api/vault.googleapis.com) in your Google Apps Script project.
-If you do not want to use a "classic" GCP Project but rather use the "Default" GCP Project, please refer to the following documentation:
-https://developers.google.com/apps-script/guides/admin/view-cloud-projects
+---
 
-### Copy the library (alternative to link the library)
-Open the script:
-https://script.google.com/home/projects/1yXuSYg04wH88jOi47oaPZahRjD3RN20tfkv7eQXrWvhnIi9c09i4q9up
-Make a copy of it on your own domain.
-Check that there is nothing in the code that may harm your domain (otherwise cut it off at your own risk).  
+## Installation
 
-- Use it directly to make your development 
-In this scenario omit the keyword `Vault` to invoke the library as shown in the rest of the document 
-Example, replace:
-    ```js
-    var matter = Vault.openMatterById("id");
+To use this library in your Google Apps Script project, follow these steps:
+
+1.  Open your Google Apps Script project.
+2.  In the script editor, next to "Libraries," click the **+** symbol.
+3.  In the "Script ID" field, paste the Vault library Script ID:
     ```
-    by
-    ```js
-    var matter = openMatterById("id");
+    1yXuSYg04wH88jOi47oaPZahRjD3RN20tfkv7eQXrWvhnIi9c09i4q9up
     ```
+4.  Click **Look up**.
+5.  Select the latest stable version.
+6.  The default "Identifier" should be `Vault`. Ensure this is set.
+7.  Click **Add**.
 
+You can now access the library's functions using the `Vault` identifier (e.g., `Vault.listMatters()`).
 
-**or**  
+Alternatively you can copy the script from:  
+- github: `gh repo clone harold-ousset/gas-vault`  
+- [Google apps script file](https://script.google.com/home/projects/1yXuSYg04wH88jOi47oaPZahRjD3RN20tfkv7eQXrWvhnIi9c09i4q9up/edit)
 
-- Create your own alternate library from it.
-Use the `deploy` button on the top right corner to create a new publication (as library).
-You can then use the script ID (from the script URL) as in the section [Link the library](#link-the-library)
+### Prerequisites & Scopes
 
+To use this library, your script project (the one consuming the library) needs specific permissions and services enabled.
 
+#### 1. OAuth Scopes
 
-## Usage
-You can invoke the library by it's instantiation name (default being "Vault")  
-Library methods are available through autocompletion  
+When you install the library, Apps Script should automatically detect and request the necessary scopes. Ensure the following are included in your project's manifest (`appsscript.json`):
 
-Note: The library is not wrote in modern JS with Class in order to allow autocompletion in GAS that is otherwise not supported  
-
-
-```js
-var listing = Vault.getMatters(); // will return a list of matters object
+```json
+"oauthScopes": [
+  "https://www.googleapis.com/auth/ediscovery",
+  "https://www.googleapis.com/auth/ediscovery.readonly",
+  "https://www.googleapis.com/auth/script.external_request",
+  // Required for managing collaborators and holds:
+  "https://www.googleapis.com/auth/admin.directory.user.readonly", 
+  "https://www.googleapis.com/auth/admin.directory.orgunit.readonly"
+]
 ```
 
-## Methods
-|Method|Return type|Description|
----|---|---|
-|createMatter(name, description)|MATTER|Create a new Matter in DRAFT state|
-|listMatters(state)|Array|List all the matters corresponding to a given [```state```](#state) (method do not list deleted matter if not explicitely requested)|
-|openMatterById(matterId)|MATTER|Open a matter from it's ID|
-|openExportById(matterId, exportId)|EXPORT|Open an export from the Matter Id and Export Id|
+#### 2. Advanced Services
 
-## Class
+The library uses the **Admin SDK Directory API** to manage matter collaborators and holds. You must enable this advanced service in your project:
 
-### Matters
-```js
-var matter = new Vault.Matter("name", "description");
+1.  In the script editor, next to "Services," click the **+** symbol.
+2.  Select **Admin SDK API**.
+3.  Click **Add**.
 
-var matter = new Vault.Matter();
-matter.setName("name").setDescription("description");
+#### 3. Google Cloud Setup
+
+The user running the script must have appropriate Google Vault permissions within your Google Workspace organization.
+
+---
+
+## Basic Usage Example
+
+```javascript
+function manageVaultMatter() {
+  // 1. Create a new matter
+  const matterName = "HR Investigation - Case 101";
+  const description = "Investigation regarding policy violation.";
+  
+  let matter;
+  try {
+    matter = Vault.createMatter(matterName, description);
+    Logger.log(`Created Matter ID: ${matter.getId()}`);
+  } catch (e) {
+    Logger.log(`Error creating matter: ${e.message}`);
+    return;
+  }
+
+  // 2. Add a collaborator
+  try {
+    matter.addCollaborator("legal.team@example.com", "OWNER");
+    Logger.log("Added legal team as owner.");
+  } catch (e) {
+    Logger.log(`Error adding collaborator: ${e.message}`);
+  }
+
+  // 3. Create an export for a user's mail
+  const userEmail = "employee@example.com";
+  const exportType = Vault.EXPORT_TYPE.MAIL;
+  const exportOptions = { exportFormat: Vault.EXPORT_FORMAT.MBOX };
+
+  const userExport = matter.createUserExport(userEmail, exportType, null, exportOptions);
+  Logger.log(`Started Export ID: ${userExport.getId()} with status: ${userExport.getStatus()}`);
+
+  // 4. List all open matters
+  const openMatters = Vault.listMatters(Vault.MATTER_STATE.OPEN);
+  Logger.log(`Found ${openMatters.length} open matters.`);
+}
 ```
-#### Properties
-|Fields||
-|---|---|
-|id|`String` <br> The matter ID, which is generated by the server. Leave blank when creating a matter.|
-|name| `String`<br>Matter name|
-|description| `String`<br> Matter description|
-|[state](#state)| `enum` <br>Matter state|
-|exports|`Array`<br>Matter exports|
 
-TODO add matter permissions
+---
 
-#### Methods
-|Method         |Return type        |Description            |
-|---            |---                |---                    |
-|setName(name)  |Matter<br>(for chaining)|Set the `name` (String) of a matter in view to create it|
-|setDescription(description)|Matter<br>(for chaining)|Set a `description` (String) of the matter in view to create it|
-|openMatterById(matterId)| Matter|Open a matter from it's ID and return it|
-|getName()|name|Gather the name (String) of a given matter|
-|getDescription()|description| Gather the `description` (String) of a given matter|
-|getState()|STATE|retrieve the [`state`](#state) of the active matter|
-|getInfos()|Object|retrieve raw informations regarding a matter|
-|create()|Matter<br>(for chaining)|Create a matter from the draft data|
-|getId()|MatterId| Gather matterId(String)|
-|close()|RawMatter|Close a Matter, will return a JSON representing the matter as in the "setStatus" method|
-|addCollaborator(email, role)|Collaborator|Add a collaborator with a given [```role```](#role) to the active matter|
-|removeCollaborator(email)|"removed"|Removed a collaborator and return a confirmation String|
-| --- | --- | --- |
-|createUserExport(account, [exportType](#exportType), name, options)|Export|Create an export from a search of a user files|
-|createExport(name, query, exportOptions)|Export|Create an export from a query like in the [official documentation]( https://developers.google.com/vault/reference/rest/v1/matters.exports#Export)|
-|getExports()|\[Export]|Display the list of the actives exports from the matter|
-|openExportById(exportId)|Export|Open an export and return it as an Object|
-|listExports()|\[Export]|Retrieve the list of the exports from the current Matter|
-| --- | --- | --- |
-|openHoldById(holdId)|Hold|Open an hold and return it as an Object|
-|listHolds()|\[Hold]|Retrieve the list of the holds from the current Matter|
+## API Reference
 
-TODO Hold section
+### Core Functions (Accessed via `Vault.*`)
 
-##### Enums
+#### `Vault.createMatter(name, [description])`
+Creates a new matter in Google Vault.
 
-###### ROLE
-|Enums              |                                     |
-|---                |---                                  |
-|ROLE_UNSPECIFIED  |	No role assigned.  (I still don't know what to do with this information)|
-|COLLABORATOR	            |A collaborator on the matter.|
-|OWNER	            |The owner of the matter.             |
+*   **Parameters:**
+    *   `name` (String): The name of the new matter.
+    *   `description` (String, Optional): A description for the matter.
+*   **Returns:** `(Matter)` A `Matter` object instance.
 
-###### STATE
-|Enums              |                                     |
-|---                |---                                  |
-|DRAFT              |Matter yet to be created             |
-|STATE_UNSPECIFIED  |	The matter has no specified state.|
-|OPEN	            |The matter is open.                  |
-|CLOSED	            |The matter is closed.                |
-|DELETED	        |The matter is deleted.               |
+#### `Vault.openMatterById(matterId)`
+Opens an existing matter by its ID.
 
+*   **Parameters:**
+    *   `matterId` (String): The unique ID of the matter.
+*   **Returns:** `(Matter)` A `Matter` object instance.
 
-### Exports
-```js
-var matter = Vault.openMatterById(matterId);
-var vaultExport = matter.openExportById(exportId);
+#### `Vault.listMatters([state])`
+Retrieves a list of matters the user has access to.
 
-var vaultExport = new Vault.Export(matterId, exportId);
-```
-#### Properties
-|Fields||
-|---|---|
-|id|`String` <br> The export ID, which is generated by the server. Leave blank when creating a matter.|
-|matterId| `String`<br>Matter ID that held the export|
-|name| `String`<br> name of the export|
-|[state](#state)| `enum` <br>export state|
-|files|`Array`<br>exports files|
+*   **Parameters:**
+    *   `state` (String, Optional): Filters matters by state (use `Vault.MATTER_STATE`).
+*   **Returns:** `(Array<Matter>)` An array of `Matter` objects.
 
-#### Methods
-|Method         |Return type        |Description            |
-|---            |---                |---                    |
-|getId()|id|Get the exportId (String)|
-|setName(name) |Export for chaining | set the current export name|
-|getStatus()|EXPORT_STATUS| get the active export status|
-|getInfos()|ExportInfos| get the export raw informations|
-|getFiles()|\[Files]|List of the files contained in the export|
-|remove()|null|Delete the current export|
+#### `Vault.openExportById(matterId, exportId)`
+Opens an existing export.
 
-##### Enums
+*   **Parameters:**
+    *   `matterId` (String): The ID of the parent matter.
+    *   `exportId` (String): The ID of the export.
+*   **Returns:** `(Export)` An `Export` object instance.
 
-###### EXPORT_STATUS
-https://developers.google.com/vault/reference/rest/v1/matters.exports#exportstatus
-|Enums              |                                     |
-|---                |---                                  |
-|EXPORT_STATUS_UNSPECIFIED |The status is unspecified.|
-|COMPLETED	            |The export completed.|
-|FAILED	            |The export failed.       |
-|IN_PROGRESS	 | The export is in progress. |
+#### `Vault.openHoldById(matterId, holdId)`
+Opens an existing hold.
 
-###### ExportType
-|Enums              |                                     |
-|---                |---                                  |
-|MAIL  |	emails|
-|DRIVE	            |Drive files|
-|GROUP	            |**Not implemented yet**             |
-|CHAT | **Not implemented yet** |
-|VOICE |**Not implemented yet**|
+*   **Parameters:**
+    *   `matterId` (String): The ID of the parent matter.
+    *   `holdId` (String): The ID of the hold.
+*   **Returns:** `(Hold)` A `Hold` object instance.
 
-###### ExportFormat
-Export format for messages
+#### `Vault.searchHoldsAccounts(heldAccount)`
+Searches all open matters to find holds that apply to a specific user. *Note: This can be slow as it iterates through all accessible open matters.*
 
-|Enums | |
-|---|---|
-|EXPORT_FORMAT_UNSPECIFIED|	No export format specified.|
-|MBOX|	Export as MBOX. Only available for Gmail, Groups, Hangouts and Voice.|
-|PST|	Export as PST. Only available for Gmail, Groups, Hangouts, Voice and Calendar.|
+*   **Parameters:**
+    *   `heldAccount` (String): The email address of the user to search for.
+*   **Returns:** `(Array<Hold>)` An array of `Hold` objects the user is subject to.
 
-terms
-https://support.google.com/vault/answer/2474474
+---
 
-### Holds
-[Not yes implemented]
-https://developers.google.com/vault/reference/rest/v1/matters.holds
+### Constants
 
-```js
-var matter = Vault.openMatterById(matterId);
-var hold = matter.openHoldById(holdId);
+#### `Vault.MATTER_STATE`
+Enum for the lifecycle states of a Matter.
+*   `OPEN`
+*   `CLOSED`
+*   `DELETED`
+*   `DRAFT`
+*   `STATE_UNSPECIFIED`
 
-var hold = new Vault.Hold(matterId, holdId);
-```
-#### Properties
+#### `Vault.EXPORT_TYPE`
+Enum for the type of data being exported.
+*   `MAIL`
+*   `DRIVE`
 
+#### `Vault.EXPORT_FORMAT`
+Enum for the format of mail exports.
+*   `PST`
+*   `MBOX`
 
-#### Methods
-|Method         |Return type        |Description            |
-|---            |---                |---                    |
-|getId()        |id                 |Get the holdId (String)|
-|setName(name)  |Hold for chaining | set the current hold name|
-|getInfos()     |HoldInfos  | get the hold raw informations|
-|getType()      |HoldType           |user or ou           |
-|removeUser(email) |null           |  remove user from hold|
-|removeOu(orgUnitPath)|null         | remove OU from hold |
-|close()        |                   |                       |
+---
+
+Of course. Here is the class method documentation formatted into Markdown tables for clarity.
+
+---
+
+### Class: `Matter`
+
+Instances of the `Matter` class are returned by `Vault.createMatter`, `Vault.openMatterById`, and `Vault.listMatters`.
+
+| Method                                                     | Description                                                                                             | Returns                               |
+| :--------------------------------------------------------- | :------------------------------------------------------------------------------------------------------ | :------------------------------------ |
+| **Information Retrieval**                                  |                                                                                                         |                                       |
+| `.getId()`                                                 | Returns the unique ID of the matter.                                                                    | `String`                              |
+| `.getName()`                                               | Returns the name of the matter.                                                                         | `String`                              |
+| `.getDescription()`                                        | Returns the description of the matter.                                                                  | `String`                              |
+| `.getState()`                                              | Returns the current state of the matter (e.g., "OPEN").                                                 | `String`                              |
+| `.getInfos()`                                              | Fetches the latest data for the matter from the API and updates the object's properties.                | `Object` (Raw API data)               |
+| **Management**                                             |                                                                                                         |                                       |
+| `.setName(name)`                                           | Sets the name. Automatically calls the Vault API to update the matter if it's already created.          | `Matter` (for chaining)               |
+| `.setDescription(description)`                             | Sets the description. Automatically calls the Vault API to update the matter if it's already created.     | `Matter` (for chaining)               |
+| `.update()`                                                | Explicitly pushes local changes to the matter's name and description to the Vault API.                  | `Matter` (for chaining)               |
+| `.close()`                                                 | Closes the matter.                                                                                      | `String` ("CLOSED" on success)        |
+| **Collaborators**                                          |                                                                                                         |                                       |
+| `.addCollaborator(email, [role])`                          | Adds a user as a collaborator. `role` can be `"COLLABORATOR"` (default) or `"OWNER"`.                     | `Object` (Collaborator info)          |
+| `.removeCollaborator(email)`                               | Removes a collaborator from the matter.                                                                 | `String` ("removed")                  |
+| **Exports**                                                |                                                                                                         |                                       |
+| `.listExports()`                                           | Lists all exports associated with this matter by calling the Vault API.                                 | `Array<Export>`                       |
+| `.getExports()`                                            | Returns the locally cached list of exports. If the cache is empty, it calls `.listExports()` first.     | `Array<Export>`                       |
+| `.openExportById(exportId)`                                | Opens a specific export within this matter.                                                             | `Export`                              |
+| `.createUserExport(account, exportType, [name], [options])`| Helper to create an export for a single user. `exportType` is from `Vault.EXPORT_TYPE`.                 | `Export`                              |
+| `.createExport(name, query, [exportOptions])`              | Creates an export using a complex Vault Query object.                                                   | `Export`                              |
+| **Holds**                                                  |                                                                                                         |                                       |
+| `.listHolds()`                                             | Lists all legal holds associated with this matter by calling the Vault API.                             | `Array<Hold>`                         |
+| `.openHoldById(holdId)`                                    | Opens a specific hold within this matter.                                                               | `Hold`                                |
+
+---
+
+### Class: `Export`
+
+Represents a Vault data export. Instances are returned by `Matter` export methods.
+
+| Method         | Description                                                                                         | Returns                   |
+| :------------- | :-------------------------------------------------------------------------------------------------- | :------------------------ |
+| `.getId()`     | Returns the unique ID of the export.                                                                | `String`                  |
+| `.getName()`   | Returns the name of the export.                                                                     | `String`                  |
+| `.getStatus()` | Fetches the current status from the API (e.g., `COMPLETED`, `IN_PROGRESS`, `FAILED`).               | `String`                  |
+| `.getInfos()`  | Refreshes the export object with the latest data from the API and updates its properties.           | `Object` (Raw API data)   |
+| `.getFiles()`  | If the export status is `COMPLETED`, returns the list of downloadable Cloud Storage files.          | `Array<Object>`           |
+| `.remove()`    | Deletes the export from the matter.                                                                 | `void`                    |
+
+---
+
+### Class: `Hold`
+
+Represents a legal hold on data. Instances are returned by `Matter` hold methods.
+
+| Method                       | Description                                                                                    | Returns                   |
+| :--------------------------- | :--------------------------------------------------------------------------------------------- | :------------------------ |
+| **Information Retrieval**    |                                                                                                |                           |
+| `.getId()`                   | Returns the unique ID of the hold.                                                             | `String`                  |
+| `.getName()`                 | Returns the name of the hold.                                                                  | `String`                  |
+| `.getMatterId()`             | Returns the ID of the parent matter.                                                           | `String`                  |
+| `.getMatterName()`           | Returns the name of the parent matter.                                                         | `String`                  |
+| `.getInfos()`                | Refreshes the hold object with the latest data from the API and updates its properties.        | `Object` (Raw API data)   |
+| **Account Management**       |                                                                                                |                           |
+| `.listAccounts()`            | Lists all accounts subject to this hold.                                                       | `Array<Object>`           |
+| `.addAccount(accountEmail)`  | Adds a single user account to the hold.                                                        | `Hold` (for chaining)     |
+| `.addAccounts(emails)`       | Adds multiple user accounts (as an array of emails) to the hold in a single batch operation.   | `Array<Object>`           |
+| `.removeAccount(email)`      | Removes a single user account from the hold.                                                   | `Boolean`                 |

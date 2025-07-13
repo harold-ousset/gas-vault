@@ -8,28 +8,13 @@
 function addUsersToHold_(matterId, holdId, accountsEmails) {
   //https://developers.google.com/vault/reference/rest/v1/matters.holds/addHeldAccounts
   const method = "POST";
-  var url = `https://vault.googleapis.com/v1/matters/${matterId}/holds/${holdId}:addHeldAccounts`;
-  var token = ScriptApp.getOAuthToken();
-  var headers = { "Authorization": 'Bearer ' + token };
-  var payload = {
+  const url = `https://vault.googleapis.com/v1/matters/${matterId}/holds/${holdId}:addHeldAccounts`;
+  const payload = {
     "emails": accountsEmails
   };
 
-  var params = {
-    "method": method,
-    'contentType': 'application/json',
-    "payload": JSON.stringify(payload),
-    "headers": headers,
-    "muteHttpExceptions": true,
-    "followRedirects": false
-  };
-
-  var result = UrlFetchApp.fetch(url, params);
-  if (result.getResponseCode() < 300) {
-    var ret = JSON.parse(result.getContentText());
-    return ret;
-  }
-  throw result.getContentText();
+  const result = new APICall().url(url).method(method).payload(payload).execute();
+  return result;
 }
 
 
@@ -41,29 +26,14 @@ function addUsersToHold_(matterId, holdId, accountsEmails) {
  */
 function addUserToHold_(matterId, holdId, accountEmail) {
   // https://developers.google.com/vault/reference/rest/v1/matters.holds.accounts/create
-  var url = `https://vault.googleapis.com/v1/matters/${matterId}/holds/${holdId}/accounts`;
+  const url = `https://vault.googleapis.com/v1/matters/${matterId}/holds/${holdId}/accounts`;
   const method = "POST";
-  payload = {
+  const payload = {
     "email": accountEmail
   };
-  var token = ScriptApp.getOAuthToken();
-  var headers = { "Authorization": 'Bearer ' + token };
 
-  var params = {
-    "method": method,
-    'contentType': 'application/json',
-    "payload": JSON.stringify(payload),
-    "headers": headers,
-    "muteHttpExceptions": true,
-    "followRedirects": false
-  };
-
-  var result = UrlFetchApp.fetch(url, params);
-  if (result.getResponseCode() < 300) {
-    var ret = JSON.parse(result.getContentText());
-    return ret;
-  }
-  throw result.getContentText();
+  const result = new APICall().url(url).method(method).payload(payload).execute();
+  return result;
 }
 
 
@@ -74,24 +44,13 @@ function addUserToHold_(matterId, holdId, accountEmail) {
  */
 function listHeldAccounts_(matterId, holdId) {
   // https://developers.google.com/workspace/vault/reference/rest/v1/matters.holds.accounts/list
-  var token = ScriptApp.getOAuthToken();
-  var baseUrl = `https://vault.googleapis.com/v1/matters/${matterId}/holds/${holdId}/accounts`;
-  var headers = { "Authorization": 'Bearer ' + token };
-  var decorator = "";
+  const url = `https://vault.googleapis.com/v1/matters/${matterId}/holds/${holdId}/accounts`;
+  const result = new APICall().url(url).execute();
 
-  var params = {
-    "method": "GET",
-    'contentType': 'application/json',
-    "headers": headers
-  };
-  var result = UrlFetchApp.fetch(baseUrl + decorator, params);
-
-  var response = JSON.parse(result.getContentText());
-
-  if (response.accounts) {
-    return response.accounts;
+  if (result.accounts) {
+    return result.accounts;
   }
-  throw "couldn't list accounts for hold " + holdId;
+  return [];
 }
 
 
@@ -102,37 +61,12 @@ function listHeldAccounts_(matterId, holdId) {
  */
 function listHolds_(matterId) {
   // https://developers.google.com/vault/reference/rest/v1/matters.holds/list
-  var token = ScriptApp.getOAuthToken();
-  var baseUrl = "https://vault.googleapis.com/v1/matters/" + matterId + "/holds";
-  var headers = { "Authorization": 'Bearer ' + token };
-  var decorator = "";
-  var pageToken;
+  const url = `https://vault.googleapis.com/v1/matters/${matterId}/holds`;
+  const method = "GET";
 
   var holds = [];
-
-  function juiceResponseHolds(hold) {
-    this.push(hold);
-  }
-
-  do {
-    var params = {
-      "method": "GET",
-      'contentType': 'application/json',
-      "headers": headers
-    };
-    var result = UrlFetchApp.fetch(baseUrl + decorator, params);
-
-    var response = JSON.parse(result.getContentText());
-
-    if (response.holds) {
-      response.holds.forEach(juiceResponseHolds, holds);
-    }
-
-    pageToken = response.nextPageToken;
-    decorator = "?pageToken=" + pageToken;
-  }
-  while (pageToken !== undefined);
-  return holds;
+  const result = new APICall().url(url).execute();
+  return result.holds || [];
 }
 
 
@@ -147,13 +81,11 @@ function listHolds_(matterId) {
  */
 function createUserHold_(matterId, name, users, workspaceService, options) {
   // https://developers.google.com/vault/reference/rest/v1/matters.holds/create
-  var url = `https://vault.googleapis.com/v1/matters/${matterId}/holds`;
-  var method = "POST";
-  var token = ScriptApp.getOAuthToken();
-  var headers = { "Authorization": 'Bearer ' + token };
-  var decorator = "";
+  const url = `https://vault.googleapis.com/v1/matters/${matterId}/holds`;
+  const method = "POST";
+  var accounts;
   if (Array.isArray(users)) {
-    var accounts = users;
+    accounts = users;
   }
   else {
     accounts = [users];
@@ -168,18 +100,8 @@ function createUserHold_(matterId, name, users, workspaceService, options) {
     payload.query = options;
   }
 
-  var params = {
-    "method": method,
-    'contentType': 'application/json',
-    "headers": headers,
-    "payload": JSON.stringify(payload)
-  };
-  var result = UrlFetchApp.fetch(url + decorator, params);
-  if (result.getResponseCode() == 200) {
-    var response = JSON.parse(result.getContentText());
-    return response;
-  }
-  throw result.getResponseCode() + " - " + result.getContentText();
+  const result = new APICall().url(url).method(method).payload(payload).execute();
+  return result;
 }
 
 /** get orgUnit ID from path
@@ -187,7 +109,7 @@ function createUserHold_(matterId, name, users, workspaceService, options) {
  * @return{String} orgUnitId
  */
 function getOrgUnitId_(orgUnitPath) {
-  var ou = AdminDirectory.Orgunits.get(orgUnitPath);
+  const ou = AdminDirectory.Orgunits.get(orgUnitPath);
   return ou.orgUnitId;
 }
 
@@ -202,13 +124,10 @@ function getOrgUnitId_(orgUnitPath) {
  */
 function createOrgUnitHold_(matterId, name, orgUnit, workspaceService, options) {
   // https://developers.google.com/vault/reference/rest/v1/matters.holds/create
-  var url = `https://vault.googleapis.com/v1/matters/${matterId}/holds`;
-  var method = "POST";
-  var token = ScriptApp.getOAuthToken();
-  var headers = { "Authorization": 'Bearer ' + token };
-  var decorator = "";
+  const url = `https://vault.googleapis.com/v1/matters/${matterId}/holds`;
+  const method = "POST";
 
-  var orgUnitId = getOrgUnitId_(orgUnit);
+  const orgUnitId = getOrgUnitId_(orgUnit);
 
   var payload = {
     "name": name,
@@ -219,18 +138,8 @@ function createOrgUnitHold_(matterId, name, orgUnit, workspaceService, options) 
     payload.query = options;
   }
 
-  var params = {
-    "method": method,
-    'contentType': 'application/json',
-    "headers": headers,
-    "payload": JSON.stringify(payload)
-  };
-  var result = UrlFetchApp.fetch(url + decorator, params);
-  if (result.getResponseCode() == 200) {
-    var response = JSON.parse(result.getContentText());
-    return response;
-  }
-  throw result.getResponseCode() + " - " + result.getContentText();
+  const result = new APICall().url(url).method(method).payload(payload).execute();
+  return result;
 }
 
 
@@ -242,14 +151,9 @@ function createOrgUnitHold_(matterId, name, orgUnit, workspaceService, options) 
  */
 function createHoldUser_(matterId, holdId, accountEmail) {
   // https://developers.google.com/workspace/vault/reference/rest/v1/matters.holds.accounts/create
-
-  var url = `https://vault.googleapis.com/v1/matters/${matterId}/holds/${holdId}/accounts`;
-  var method = "POST";
-  var token = ScriptApp.getOAuthToken();
-  var headers = { "Authorization": 'Bearer ' + token };
-  var decorator = "";
-
-  var payload = {
+  const url = `https://vault.googleapis.com/v1/matters/${matterId}/holds/${holdId}/accounts`;
+  const method = "POST";
+  const payload = {
     "email": accountEmail,
   };
 
@@ -257,21 +161,9 @@ function createHoldUser_(matterId, holdId, accountEmail) {
     payload.query = options;
   }
 
-  var params = {
-    "method": method,
-    'contentType': 'application/json',
-    "headers": headers,
-    "payload": JSON.stringify(payload)
-  };
-  var result = UrlFetchApp.fetch(url + decorator, params);
-  if (result.getResponseCode() == 200) {
-    var response = JSON.parse(result.getContentText());
-    return response;
-  }
-  throw result.getResponseCode() + " - " + result.getContentText();
-
+  const result = new APICall().url(url).method(method).payload(payload).execute();
+  return result;
 }
-
 
 
 /** add several accounts to a hold
@@ -282,15 +174,10 @@ function createHoldUser_(matterId, holdId, accountEmail) {
  */
 function addHeldAccounts_(matterId, holdId, accountEmails) {
   // https://developers.google.com/workspace/vault/reference/rest/v1/matters.holds/addHeldAccounts
-
-  var url = `https://vault.googleapis.com/v1/matters/${matterId}/holds/${holdId}:addHeldAccounts`;
-  var method = "POST";
-  var token = ScriptApp.getOAuthToken();
-  var headers = { "Authorization": 'Bearer ' + token };
-  var decorator = "";
-
-  var accounts = accountEmails.map(account => account.trim().toLowerCase());
-  var payload = {
+  const url = `https://vault.googleapis.com/v1/matters/${matterId}/holds/${holdId}:addHeldAccounts`;
+  const method = "POST";
+  const accounts = accountEmails.map(account => account.trim().toLowerCase());
+  const payload = {
     "emails": accounts
   };
 
@@ -298,18 +185,8 @@ function addHeldAccounts_(matterId, holdId, accountEmails) {
     payload.query = options;
   }
 
-  var params = {
-    "method": method,
-    'contentType': 'application/json',
-    "headers": headers,
-    "payload": JSON.stringify(payload)
-  };
-  var result = UrlFetchApp.fetch(url + decorator, params);
-  if (result.getResponseCode() == 200) {
-    var response = JSON.parse(result.getContentText());
-    return response;
-  }
-  throw result.getResponseCode() + " - " + result.getContentText();
+  const result = new APICall().url(url).method(method).payload(payload).execute();
+  return result;
 }
 
 
@@ -319,22 +196,10 @@ function addHeldAccounts_(matterId, holdId, accountEmails) {
  * @param{String} accountId, as returned by the hold account list
  * @return{Object} empty object
  */
-function removeHeldAccount_(matterId, holdId, accountId){
+function removeHeldAccount_(matterId, holdId, accountId) {
   // https://developers.google.com/workspace/vault/reference/rest/v1/matters.holds.accounts/delete
-  var url = `https://vault.googleapis.com/v1/matters/${matterId}/holds/${holdId}/accounts/${accountId}`;
-  var method = "DELETE";
-  var token = ScriptApp.getOAuthToken();
-  var headers = { "Authorization": 'Bearer ' + token };
-
-  var params = {
-    "method": method,
-    "headers": headers
-  };
-  var result = UrlFetchApp.fetch(url + decorator, params);
-  if (result.getResponseCode() == 200) {
-    var response = JSON.parse(result.getContentText());
-    return response;
-  }
-  throw result.getResponseCode() + " - " + result.getContentText();
+  const url = `https://vault.googleapis.com/v1/matters/${matterId}/holds/${holdId}/accounts/${accountId}`;
+  const result = new APICall().url(url).method("DELETE").execute();
+  return result;
 }
 

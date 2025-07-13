@@ -6,24 +6,14 @@
 * @return{String} matterId, unique id of the matter
 **/
 function createMatter_(name, description) {
-  var token = ScriptApp.getOAuthToken();
-  var url = "https://vault.googleapis.com/v1/matters";
-  var headers = {"Authorization": 'Bearer ' +token};
-  
+  const url = "https://vault.googleapis.com/v1/matters"; 
   var payload = {"name":name};
   if(description){
     payload.description = description; 
   }
-  var params = {
-    "method":"POST",
-    'contentType': 'application/json',
-    "payload":JSON.stringify(payload),
-    "headers":headers
-  };
   
-  var result = UrlFetchApp.fetch(url, params);
-  var ret = JSON.parse(result.getContentText());
-  return ret.matterId;
+  const result = new APICall().url(url).method("POST").payload(payload).execute();
+  return result.matterId;
 }
 
 /**
@@ -36,15 +26,13 @@ function createMatter_(name, description) {
 **/
 function addMatterCollaborator_(matterId, collaboratorEmail, roleRaw, userNotification){
   roleRaw = roleRaw || "COLLABORATOR";
-  var role = roleRaw.toUpperCase();
-  var roles = ["COLLABORATOR","OWNER"];
+  const role = roleRaw.toUpperCase();
+  const roles = ["COLLABORATOR","OWNER"];
   if(roles.indexOf(role) == -1){
-    throw "Can't add collaborator to matter, role "+roleRaw+" unhandled"; 
+    throw new Error("Can't add collaborator to matter, role "+roleRaw+" unhandled"); 
   }
-  var token = ScriptApp.getOAuthToken();
-  var url = "https://vault.googleapis.com/v1/matters/"+matterId+":addPermissions";
-  var headers = {"Authorization": 'Bearer ' +token};
-  var accountId = AdminDirectory.Users.get(collaboratorEmail).id;
+  const url = `https://vault.googleapis.com/v1/matters/${matterId}:addPermissions`;
+  const accountId = AdminDirectory.Users.get(collaboratorEmail).id;
   
   var payload = {
     "matterPermission": {
@@ -57,19 +45,8 @@ function addMatterCollaborator_(matterId, collaboratorEmail, roleRaw, userNotifi
     payload.sendEmails = userNotification;
   }
   
-  var params = {
-    "method":"POST",
-    'contentType': 'application/json',
-    "payload":JSON.stringify(payload),
-    "headers":headers
-  };
-  
-  var result = UrlFetchApp.fetch(url, params);
-  if(result.getResponseCode() < 300){
-    return {email:collaboratorEmail, userId:accountId, role:role};
-  }
-  console.warn(result.getResponseCode()+" - "+result.getContentText());
-  throw result.getContentText();
+  var result = new APICall().url(url).method("POST").payload(payload).execute();
+  return {"email":collaboratorEmail, "userId":accountId, "role":role};
 }
 
 
@@ -80,28 +57,15 @@ function addMatterCollaborator_(matterId, collaboratorEmail, roleRaw, userNotifi
 * @return{Object} undefined, there is no return in case of success
 **/
 function removeMatterCollaborator_(matterId, collaboratorEmail){
-  var token = ScriptApp.getOAuthToken();
-  var url = "https://vault.googleapis.com/v1/matters/"+matterId+":removePermissions";
-  var headers = {"Authorization": 'Bearer ' +token};
-  var accountId = AdminDirectory.Users.get(collaboratorEmail).id;
+  const url = `https://vault.googleapis.com/v1/matters/${matterId}:removePermissions`;
+  const accountId = AdminDirectory.Users.get(collaboratorEmail).id;
   
   var payload = {
     "accountId": accountId
   };
-
-  var params = {
-    "method":"POST",
-    'contentType': 'application/json',
-    "payload":JSON.stringify(payload),
-    "headers":headers
-  };
   
-  var result = UrlFetchApp.fetch(url, params);
-  if(result.getResponseCode() < 300){
-    return;
-  }
-  console.warn(result.getResponseCode()+" - "+result.getContentText());
-  throw result.getContentText();
+  const result = new APICall().url(url).method("POST").payload(payload).execute();
+  return;
 }
 
 /**
@@ -111,104 +75,59 @@ function removeMatterCollaborator_(matterId, collaboratorEmail){
 * @return{Object} undefined, there is no return in case of success
 **/
 function updateMatter_(matterId, fields){
-  var token = ScriptApp.getOAuthToken();
-  var url = "https://vault.googleapis.com/v1/matters/"+matterId;
-  var headers = {"Authorization": 'Bearer ' +token};
-  
+  const url = `https://vault.googleapis.com/v1/matters/${matterId}`;
   var payload = fields;
-
-  var params = {
-    "method":"PUT",
-    'contentType': 'application/json',
-    "payload":JSON.stringify(payload),
-    "headers":headers
-  };
   
-  var result = UrlFetchApp.fetch(url, params);
-  if(result.getResponseCode() < 300){
-    return JSON.parse(result.getContentText());
-  }
-  console.warn(result.getResponseCode()+" - "+result.getContentText());
-  throw result.getContentText();
+  const result = new APICall().url(url).method('PUT').payload(payload).execute(); 
+return result;
 }
 
 
 /**
-* close a matter when achieved
-* @param{String} matterId
-* @return{Number} responseCode, 200 if successfull
+* close a matter
+* @param {String} matterId
+* @return tempty string
 **/
 function closeMatter_(matterId){
-  var url = "https://vault.googleapis.com/v1/matters/"+matterId+":close"; 
-  var token = ScriptApp.getOAuthToken();
-  var headers = {"Authorization": 'Bearer ' +token};
+  const url = `https://vault.googleapis.com/v1/matters/${matterId}:close`; 
   
-  var params = {
-    "method":"POST",
-    'contentType': 'application/json',
-    "headers":headers
-  };
-  var result = UrlFetchApp.fetch(url, params);
-  return result.getResponseCode();
+  var result = new APICall().url(url).method("POST").execute(); // we are supposed to have a post with an empty body
+  return result;
 }
 
 /**
 * retrive all the matters available for a given user
-* @param{String} state, state of the matter ["OPEN","CLOSED", "DELETED"];
+* @param {String} state, state of the matter ["OPEN","CLOSED", "DELETED"];
 * @return {Array} Matters
 **/
 function getMatters_(stateRaw){
-  var states = ["OPEN","CLOSED", "DELETED"];
+  const states = ["OPEN","CLOSED", "DELETED"];
   var state;
   if(stateRaw !== undefined){
     state = stateRaw.toUpperCase();
     if(states.indexOf(state) == -1){
-      throw "Matter state not recognized: "+stateRaw; 
+      throw new Error("Matter state not recognized: "+stateRaw); 
     }
   }
-  
-  var baseUrl = "https://vault.googleapis.com/v1/matters";
-  
-  var token = ScriptApp.getOAuthToken();
-  var headers = {"Authorization": 'Bearer ' +token};
-  var decorator = "";
+  const url = "https://vault.googleapis.com/v1/matters";
+  var optionalArgs = {};
   if(state !== undefined){
-    decorator = "?state="+state;
+    optionalArgs["state"] = state;
   }
-  var pageToken;
-  
+
   var matters = [];
   
   function juiceResponseMatters(matterRaw){
-    var matter = new Matter();
+    let matter = new Matter();
     matter.chargeStatus_(matterRaw);
     this.push(matter);
   }
   
-  do{
-    var params = {
-      "method":"GET",
-      'contentType': 'application/json',
-      "headers":headers
-    };  
-    var result = UrlFetchApp.fetch(baseUrl+decorator, params);
-    
-    var response = JSON.parse(result.getContentText());
-    
-    if(response.matters){
-      response.matters.forEach(juiceResponseMatters, matters);
+    var result = new APICall().url(url).optionalArgs(optionalArgs).execute();
+
+    if(result.matters){
+      result.matters.forEach(juiceResponseMatters, matters);
     }
-    
-    pageToken = response.nextPageToken;
-    if(state !== undefined){
-      decorator = "?state="+state+"&pageToken="+pageToken;
-    }
-    else{
-      decorator = "?pageToken="+pageToken;
-    }
-    
-  }
-  while(pageToken !== undefined);
   return matters;  
 }
 
@@ -218,18 +137,10 @@ function getMatters_(stateRaw){
 * @return{Object} raw matter object
 **/
 function getMatterById_(matterId){
-  var url = `https://vault.googleapis.com/v1/matters/${matterId}?view=FULL`;
-  var token = ScriptApp.getOAuthToken();
-  var headers = {"Authorization": 'Bearer ' +token};
-  
-  var params = {
-    "method":"GET",
-    'contentType': 'application/json',
-    "headers":headers
-  };
-  var result = UrlFetchApp.fetch(url, params);
-  var out = JSON.parse(result.getContentText());
-  return out;
+  const url = `https://vault.googleapis.com/v1/matters/${matterId}?view=FULL`;
+
+  const result = new APICall().url(url).execute();
+  return result;
 }
 
 
@@ -241,18 +152,10 @@ function getMatterById_(matterId){
 * @return{Object} file, Google drive file object
 **/
 function saveToDriveBucketFile_(BUCKET_NAME,OBJECT_NAME){
-  var name = OBJECT_NAME.split('/').pop();
-  var url = "https://www.googleapis.com/storage/v1/b/"+encodeURIComponent(BUCKET_NAME)+"/o/"+encodeURIComponent(OBJECT_NAME)+"?alt=media";
-  var token = ScriptApp.getOAuthToken();
-  var headers = {"Authorization": 'Bearer ' +token};
-  
-  var params = {
-    "method":"GET",
-    'contentType': 'application/json',
-    "headers":headers,
-    muteHttpExceptions:true
-  };
-  var result = UrlFetchApp.fetch(url, params);
-  var file = DriveApp.createFile(name, result.getContentText());
+  const name = OBJECT_NAME.split('/').pop();
+  const url = `https://www.googleapis.com/storage/v1/b/${encodeURIComponent(BUCKET_NAME)}/o/${encodeURIComponent(OBJECT_NAME)}`;
+  const optionalArgs = {"alt":"media"}
+  var result = new APICall().url(url).optionalArgs(optionalArgs).execute();
+  var file = DriveApp.createFile(name, result);
   return file;
 }
